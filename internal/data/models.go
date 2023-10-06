@@ -5,6 +5,8 @@ import (
 	"errors"
 )
 
+const ContextCanceledByUser string = "pq: canceling statement due to user request"
+
 var (
 	ErrRecordNotFound = errors.New("record not found")
 	ErrEditConflict   = errors.New("edit conflict")

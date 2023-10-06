@@ -1,9 +1,11 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/romankravchuk/movies/internal/data"
 	"github.com/romankravchuk/movies/internal/validator"
@@ -37,8 +39,16 @@ func (app *application) createMovieHandler(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	if err = app.models.Movies.Insert(movie); err != nil {
-		app.serverErrorResponse(w, r, err)
+	ctx, cancel := context.WithTimeout(r.Context(), 3*time.Second)
+	defer cancel()
+
+	if err = app.models.Movies.Insert(ctx, movie); err != nil {
+		switch {
+		case errors.Is(err, context.Canceled):
+			return
+		default:
+			app.serverErrorResponse(w, r, err)
+		}
 		return
 	}
 
@@ -58,9 +68,14 @@ func (app *application) showMovieHandler(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	movie, err := app.models.Movies.Get(id)
+	ctx, cancel := context.WithTimeout(r.Context(), 3*time.Second)
+	defer cancel()
+
+	movie, err := app.models.Movies.Get(ctx, id)
 	if err != nil {
 		switch {
+		case errors.Is(err, context.Canceled):
+			return
 		case errors.Is(err, data.ErrRecordNotFound):
 			app.notFoundResponse(w, r)
 		default:
@@ -82,9 +97,14 @@ func (app *application) updateMovieHandler(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	movie, err := app.models.Movies.Get(id)
+	ctx, cancel := context.WithTimeout(r.Context(), 3*time.Second)
+	defer cancel()
+
+	movie, err := app.models.Movies.Get(ctx, id)
 	if err != nil {
 		switch {
+		case errors.Is(err, context.Canceled):
+			return
 		case errors.Is(err, data.ErrRecordNotFound):
 			app.notFoundResponse(w, r)
 		default:
@@ -126,9 +146,14 @@ func (app *application) updateMovieHandler(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	err = app.models.Movies.Update(movie)
+	updateCtx, updateCancel := context.WithTimeout(r.Context(), 3*time.Second)
+	defer updateCancel()
+
+	err = app.models.Movies.Update(updateCtx, movie)
 	if err != nil {
 		switch {
+		case errors.Is(err, context.Canceled):
+			return
 		case errors.Is(err, data.ErrEditConflict):
 			app.editConflictResponse(w, r)
 		default:
@@ -150,9 +175,14 @@ func (app *application) deleteMovieHandler(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	err = app.models.Movies.Delete(id)
+	ctx, cancel := context.WithTimeout(r.Context(), 3*time.Second)
+	defer cancel()
+
+	err = app.models.Movies.Delete(ctx, id)
 	if err != nil {
 		switch {
+		case errors.Is(err, context.Canceled):
+			return
 		case errors.Is(err, data.ErrRecordNotFound):
 			app.notFoundResponse(w, r)
 		default:

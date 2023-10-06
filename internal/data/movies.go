@@ -1,8 +1,10 @@
 package data
 
 import (
+	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/lib/pq"
@@ -40,7 +42,7 @@ type MovieModel struct {
 	DB *sql.DB
 }
 
-func (m MovieModel) Insert(movie *Movie) error {
+func (m MovieModel) Insert(ctx context.Context, movie *Movie) error {
 	query := `
 		INSERT INTO movies (title, year, runtime, genres)
 		VALUES ($1, $2, $3, $4)
@@ -54,10 +56,20 @@ func (m MovieModel) Insert(movie *Movie) error {
 		pq.Array(movie.Genres),
 	}
 
-	return m.DB.QueryRow(query, args...).Scan(&movie.ID, &movie.CreatedAt, &movie.Version)
+	err := m.DB.QueryRowContext(ctx, query, args...).Scan(&movie.ID, &movie.CreatedAt, &movie.Version)
+	if err != nil {
+		switch {
+		case err.Error() == ContextCanceledByUser:
+			return fmt.Errorf("%w: %w", err, ctx.Err())
+		default:
+			return err
+		}
+	}
+
+	return nil
 }
 
-func (m MovieModel) Get(id int64) (*Movie, error) {
+func (m MovieModel) Get(ctx context.Context, id int64) (*Movie, error) {
 	if id < 1 {
 		return nil, ErrRecordNotFound
 	}
@@ -67,10 +79,9 @@ func (m MovieModel) Get(id int64) (*Movie, error) {
 		FROM movies
 		WHERE id = $1
 	`
+	var movie Movie
 
-	movie := &Movie{}
-
-	err := m.DB.QueryRow(query, id).Scan(
+	err := m.DB.QueryRowContext(ctx, query, id).Scan(
 		&movie.ID,
 		&movie.CreatedAt,
 		&movie.Title,
@@ -81,6 +92,8 @@ func (m MovieModel) Get(id int64) (*Movie, error) {
 	)
 	if err != nil {
 		switch {
+		case err.Error() == ContextCanceledByUser:
+			return nil, fmt.Errorf("%w: %w", err, ctx.Err())
 		case errors.Is(err, sql.ErrNoRows):
 			return nil, ErrRecordNotFound
 		default:
@@ -88,10 +101,10 @@ func (m MovieModel) Get(id int64) (*Movie, error) {
 		}
 	}
 
-	return movie, nil
+	return &movie, nil
 }
 
-func (m MovieModel) Update(movie *Movie) error {
+func (m MovieModel) Update(ctx context.Context, movie *Movie) error {
 	query := `
 		UPDATE movies
 		SET title = $1, year = $2, runtime = $3, genres = $4, version = uuid_generate_v4()
@@ -108,9 +121,11 @@ func (m MovieModel) Update(movie *Movie) error {
 		movie.Version,
 	}
 
-	err := m.DB.QueryRow(query, args...).Scan(&movie.Version)
+	err := m.DB.QueryRowContext(ctx, query, args...).Scan(&movie.Version)
 	if err != nil {
 		switch {
+		case err.Error() == ContextCanceledByUser:
+			return fmt.Errorf("%w: %w", err, ctx.Err())
 		case errors.Is(err, sql.ErrNoRows):
 			return ErrEditConflict
 		default:
@@ -121,7 +136,7 @@ func (m MovieModel) Update(movie *Movie) error {
 	return nil
 }
 
-func (m MovieModel) Delete(id int64) error {
+func (m MovieModel) Delete(ctx context.Context, id int64) error {
 	if id < 1 {
 		return ErrRecordNotFound
 	}
@@ -131,9 +146,14 @@ func (m MovieModel) Delete(id int64) error {
 		WHERE id = $1
 	`
 
-	result, err := m.DB.Exec(query, id)
+	result, err := m.DB.ExecContext(ctx, query, id)
 	if err != nil {
-		return err
+		switch {
+		case err.Error() == ContextCanceledByUser:
+			return fmt.Errorf("%w: %w", err, ctx.Err())
+		default:
+			return err
+		}
 	}
 
 	rowsAffected, err := result.RowsAffected()
