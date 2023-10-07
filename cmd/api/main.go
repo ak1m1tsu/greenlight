@@ -12,6 +12,7 @@ import (
 
 	_ "github.com/lib/pq"
 	"github.com/romankravchuk/movies/internal/data"
+	jsonlog "github.com/romankravchuk/movies/internal/log"
 )
 
 const version = "1.0.0"
@@ -29,7 +30,7 @@ type config struct {
 
 type application struct {
 	cfg    config
-	logger *slog.Logger
+	logger *jsonlog.Logger
 	models data.Models
 }
 
@@ -46,15 +47,18 @@ func main() {
 
 	flag.Parse()
 
-	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
+	logger := jsonlog.New(os.Stderr, slog.LevelInfo)
 
 	db, err := openDB(cfg)
 	if err != nil {
-		logger.Error(err.Error())
+		logger.Error(err, nil)
 		os.Exit(1)
 	}
 	defer db.Close()
-	logger.Info("database connection pool established")
+	logger.Log("database connection pool established", map[string]any{
+		"db-dsn":           cfg.db.dsn,
+		"db-max-open-conn": cfg.db.maxOpenConns,
+	})
 
 	app := &application{
 		cfg:    cfg,
@@ -71,9 +75,14 @@ func main() {
 		ErrorLog:     slog.NewLogLogger(logger.Handler(), slog.LevelError),
 	}
 
-	logger.Info("starting server", "addr", srv.Addr, "env", cfg.env)
+	logger.Log("starting server", map[string]any{
+		"addr": srv.Addr,
+		"env":  cfg.env,
+	})
+
 	err = srv.ListenAndServe()
-	logger.Error(err.Error())
+	logger.Error(err, nil)
+
 	os.Exit(0)
 }
 
