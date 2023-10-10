@@ -57,6 +57,15 @@ func (app *application) registerUserHandler(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
+	ctx, cancel = context.WithTimeout(r.Context(), 3*time.Second)
+	defer cancel()
+
+	err = app.models.Permissions.AddForUser(ctx, user.ID, "movies:read")
+	if err != nil {
+		app.serverErrorResponse(w, r, err)
+		return
+	}
+
 	token, err := app.models.Tokens.New(user.ID, 3*25*time.Hour, data.ScopeActivation)
 	if err != nil {
 		app.serverErrorResponse(w, r, err)
