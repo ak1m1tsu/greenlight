@@ -6,6 +6,11 @@ import (
 	"github.com/julienschmidt/httprouter"
 )
 
+const (
+	moviesRead  = "movies:read"
+	moviesWrite = "movies:write"
+)
+
 func (app *application) routes() http.Handler {
 	router := httprouter.New()
 
@@ -14,11 +19,11 @@ func (app *application) routes() http.Handler {
 
 	router.HandlerFunc(http.MethodGet, "/v1/healthcheck", app.healthcheckHandler)
 
-	router.HandlerFunc(http.MethodPost, "/v1/movies", app.requireActivatedUser(app.createMovieHandler))
-	router.HandlerFunc(http.MethodGet, "/v1/movies", app.requireActivatedUser(app.listMoviesHandler))
-	router.HandlerFunc(http.MethodGet, "/v1/movies/:id", app.requireActivatedUser(app.showMovieHandler))
-	router.HandlerFunc(http.MethodPatch, "/v1/movies/:id", app.requireActivatedUser(app.updateMovieHandler))
-	router.HandlerFunc(http.MethodDelete, "/v1/movies/:id", app.requireActivatedUser(app.deleteMovieHandler))
+	router.HandlerFunc(http.MethodPost, "/v1/movies", app.requirePermission(moviesRead, app.createMovieHandler))
+	router.HandlerFunc(http.MethodGet, "/v1/movies", app.requirePermission(moviesWrite, app.listMoviesHandler))
+	router.HandlerFunc(http.MethodGet, "/v1/movies/:id", app.requirePermission(moviesRead, app.showMovieHandler))
+	router.HandlerFunc(http.MethodPatch, "/v1/movies/:id", app.requirePermission(moviesWrite, app.updateMovieHandler))
+	router.HandlerFunc(http.MethodDelete, "/v1/movies/:id", app.requirePermission(moviesWrite, app.deleteMovieHandler))
 
 	router.HandlerFunc(http.MethodPost, "/v1/users", app.registerUserHandler)
 	router.HandlerFunc(http.MethodPut, "/v1/users/activated", app.activateUserHandler)
