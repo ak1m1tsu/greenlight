@@ -6,9 +6,11 @@ import (
 )
 
 func Version() string {
-	var revision string
-	var modified bool
-
+	var (
+		revision string
+		modified bool
+		time string
+	)
 	bi, ok := debug.ReadBuildInfo()
 	if ok {
 		for _, s := range bi.Settings {
@@ -19,13 +21,15 @@ func Version() string {
 				if s.Value == "true" {
 					modified = true
 				}
+			case "vcs.time":
+				time = s.Value
 			}
 		}
 	}
 
 	if modified {
-		return fmt.Sprintf("%s-dirty", revision)
+		return fmt.Sprintf("%s-%s-dirty", time, revision)
 	}
 
-	return revision
+	return fmt.Sprintf("%s-%s", time, revision)
 }
