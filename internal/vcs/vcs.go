@@ -9,7 +9,7 @@ func Version() string {
 	var (
 		revision string
 		modified bool
-		time string
+		time     string
 	)
 	bi, ok := debug.ReadBuildInfo()
 	if ok {
