@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"expvar"
 	"flag"
+	"fmt"
 	"log/slog"
 	"os"
 	"runtime"
@@ -16,9 +17,10 @@ import (
 	"github.com/romankravchuk/movies/internal/data"
 	jsonlog "github.com/romankravchuk/movies/internal/log"
 	"github.com/romankravchuk/movies/internal/mailer"
+	"github.com/romankravchuk/movies/internal/vcs"
 )
 
-const version = "1.0.0"
+var version = vcs.Version()
 
 type config struct {
 	port int
@@ -80,7 +82,14 @@ func main() {
 		return nil
 	})
 
+	displayVersion := flag.Bool("version", false, "Display version and exit")
+
 	flag.Parse()
+
+	if *displayVersion {
+		fmt.Printf("Version:\t%s\n", version)
+		os.Exit(0)
+	}
 
 	logger := jsonlog.New(os.Stderr, slog.LevelInfo)
 
